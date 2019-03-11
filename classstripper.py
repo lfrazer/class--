@@ -4,6 +4,7 @@ import os
 import json
 
 #pass ctags-Universal JSON output into this program to parse out class / structs from C++ headers
+#Example cmd line:  ctags --c++-kinds=+p --fields=+ianS --extras=+q --output-format=json /pathto/yourcode/*.h > typeinfo.json
 
 def main(argv):
 	data_file = open(argv[0], encoding='utf-8')
@@ -24,9 +25,10 @@ def main(argv):
 			memberIndex[data["name"]] = []
 		
 		if(data["kind"] == "member"):
-			if not data["scope"] in memberIndex:
-				memberIndex[data["scope"]] = []
-			memberIndex[data["scope"]].append(data)
+			fixedScope = FixupScope(data["scope"])
+			if not fixedScope in memberIndex:
+				memberIndex[fixedScope] = []
+			memberIndex[fixedScope].append(data)
 			
 	
 	outfileName = argv[0].replace(".json", ".h")
@@ -40,7 +42,7 @@ def main(argv):
 		membervars = {}
 		for mdata in memberIndex[classname]:
 			strippedVarName = StripScope(mdata["name"], classname)
-			if not strippedVarName in membervars:
+			if strippedVarName != "" and not strippedVarName in membervars:
 				membervars[strippedVarName] = mdata
 			
 		for mvars in membervars.values():
@@ -57,8 +59,30 @@ def FilterType(typeref):
 	return typeref.replace("typename:", "")
 
 def StripScope(varname, className):
+	if(varname.find("__anon") != -1):
+		return ""  #ignore anon scope variables
 	varname = varname.replace(className + "::", "")
 	return varname
-	
+
+# removes anonymous scope
+def FixupScope(scope):
+    if(scope.find("::") == -1):
+        return scope
+    scopeout = ""
+    scopeParts = scope.split("::")
+    numScopeParts = len(scopeParts)
+    if scopeParts[len(scopeParts)-1].find("__anon") != -1:
+        numScopeParts = numScopeParts - 1
+
+    counter = 0
+    for str in scopeParts:
+        scopeout = scopeout + str + "::"
+        counter = counter + 1
+        if counter >= numScopeParts:
+            break
+
+    scopeout = scopeout[0:len(scopeout)-2]
+    return scopeout
+
 if __name__ == "__main__":
    main(sys.argv[1:])
