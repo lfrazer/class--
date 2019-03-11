@@ -47,7 +47,7 @@ def main(argv):
 		
 		# add class members to their own index
 		if(data["kind"] == "member"):
-			fixedScope = FixupScope(data["scope"])
+			fixedScope = data["scope"] # no longer need to fixupscope due to handling nested classes/unions
 			if not fixedScope in memberIndex:
 				memberIndex[fixedScope] = []
 			memberIndex[fixedScope].append(data)
@@ -114,8 +114,13 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 			membervars[strippedVarName] = mdata
 			
 	for mvars in membervars.values():
-		#varline = tabPrefix +  "\t" + FilterType(mvars["typeref"]) + " " + StripScope(mvars["name"], classname) + ";\n"
-		varline = tabPrefix + "\t" + FixupPattern(mvars["pattern"]) + "\n" # Write vars with pattern to preserve array sizes and comments
+		varline = ""
+		fixedPattern = FixupPattern(mvars["pattern"])
+		if(fixedPattern.find(",") == -1):  # NOTE: printing the pattern goes horribly wrong when the struct declares multiple vars on one line with commas, if this is the case we need to fallback to old way of printing
+			varline = tabPrefix + "\t" + fixedPattern + "\n" # Write vars with pattern to preserve array sizes and comments
+		else:
+			varline = tabPrefix +  "\t" + FilterType(mvars["typeref"]) + " " + StripScope(mvars["name"], classname) + "; // split multi var declaration line\n"
+
 		outfile.write(varline)
 		
 	outfile.write(tabPrefix + "}; // end object " + classname + "\n\n\n")
@@ -171,12 +176,14 @@ def FixupPattern(pattern):
 		pattern = pattern.replace("\\/\\/", "//")
 		pattern = pattern.replace("\\/*", "/*")
 		pattern = pattern.replace("*\\/", "*/")
+		if(pattern.strip()[0] == "}"):
+			pattern = "// <ErrorType>" + pattern  # Sometimes Ctags JSON data gives us bad types from the trailing brace of a C-style structure with name (typedef style?), handle this case
 	return pattern
 
 # remove class scope of a member var the class is already in
 def StripScope(varname, className):
-	if(varname.find("__anon") != -1):
-		return ""  #ignore anon scope variables
+	#if(varname.find("__anon") != -1):
+	#	return ""  #ignore anon scope variables
 	varname = varname.replace(className + "::", "")
 	return varname
 
