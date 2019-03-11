@@ -13,8 +13,11 @@ import re
 #Important note:  Tell ctags not to sort to keep member variables in correct order
 #Example cmd line:  ctags --c++-kinds=+p --fields=+ianS --extras=+q --sort=no --output-format=json /pathto/yourcode/*.h > typeinfo.json
 
+nativeTypes = ["T", "void", "int", "char", "const char", "wchar_t", "const wchar_t", "long", "float", "double", "unsigned", "unsigned int", "unsigned long", "long long", "unsigned long long", "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t", "SInt8", "SInt16", "SInt32", "SInt64", "UInt8", "UInt16", "UInt32", "UInt64", "Float32", "Float64"]
+
 classIndex = {}
 memberIndex = {}  # index of lists by class name
+forwardDeclrations = {}  # print forward declarations for non-native ptr types
 
 def main(argv):
 	
@@ -51,6 +54,15 @@ def main(argv):
 			if not fixedScope in memberIndex:
 				memberIndex[fixedScope] = []
 			memberIndex[fixedScope].append(data)
+			# store ptr types in forward declaration if needed
+			cleanedType = FilterTemplate(FilterType(data["typeref"]))
+			if cleanedType.find("*") != -1:
+				cleanedType = cleanedType.replace("*", "")
+				cleanedType = re.sub("\[.*\]", "", cleanedType)
+				cleanedType = cleanedType.strip()
+				if(cleanedType not in nativeTypes and cleanedType not in forwardDeclrations):
+					forwardDeclrations[cleanedType] = 1
+					
 		
 		#if we find a virtual destructor prototype, mark this class as virtual
 		elif(data["kind"] == "prototype" and data["pattern"].find("virtual ~") != -1):
@@ -61,7 +73,16 @@ def main(argv):
 	outfileName = argv[0].replace(".json", ".h")
 	print("Dumping results in " + outfileName)
 	outfile = open(outfileName, "w")
-	
+
+	outfile.write("// Forward Declarations \n\n")
+
+	#write forward declarations
+	for decl in forwardDeclrations.keys():
+		outfile.write("struct " + decl + ";\n")
+
+	outfile.write("\n\n// Structures \n\n")
+
+	# Write all structures
 	for cdata in classIndex.values():
 		WriteClass(cdata, outfile)
 		
