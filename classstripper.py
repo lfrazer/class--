@@ -98,7 +98,14 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 		
 	if(subclass != classname and subclass != ""):
 		subclass = FilterTemplate(subclass)
-		outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + "; // sub class\n")
+		# Try to support multiple inheritance
+		if(subclass.find(",") != -1):
+			subclassList = subclass.split(",")
+			for sclass in subclassList:
+				outfile.write(tabPrefix + "\t" + sclass + " m_" + sclass + "; // sub class (Multiple-inheritance)\n")
+		else:
+			outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + "; // sub class\n")
+
 	else:
 		if("isvirtual" in classjson):
 			outfile.write(tabPrefix + "\tvoid** m_pVtbl; // base virtual class virtual func table pointer\n")
