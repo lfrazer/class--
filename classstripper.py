@@ -114,7 +114,8 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 			membervars[strippedVarName] = mdata
 			
 	for mvars in membervars.values():
-		varline = tabPrefix +  "\t" + FilterType(mvars["typeref"]) + " " + StripScope(mvars["name"], classname) + ";\n"
+		#varline = tabPrefix +  "\t" + FilterType(mvars["typeref"]) + " " + StripScope(mvars["name"], classname) + ";\n"
+		varline = tabPrefix + "\t" + FixupPattern(mvars["pattern"]) + "\n" # Write vars with pattern to preserve array sizes and comments
 		outfile.write(varline)
 		
 	outfile.write(tabPrefix + "}; // end object " + classname + "\n\n\n")
@@ -162,6 +163,15 @@ def GetScopeParts(classname):
 # remove "typename:" prefix from ctags typename strings
 def FilterType(typeref):
 	return typeref.replace("typename:", "")
+
+# Fix up pattern - remove junk text and fix comments
+def FixupPattern(pattern):
+	if len(pattern) > 4:
+		pattern = pattern[2:len(pattern)-2]
+		pattern = pattern.replace("\\/\\/", "//")
+		pattern = pattern.replace("\\/*", "/*")
+		pattern = pattern.replace("*\\/", "*/")
+	return pattern
 
 # remove class scope of a member var the class is already in
 def StripScope(varname, className):
