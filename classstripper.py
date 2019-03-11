@@ -5,9 +5,9 @@
 # Convert C++ classes to C structures
 
 import getopt, sys
-import glob
 import os
 import json
+import re
 
 #pass ctags-Universal JSON output into this program to parse out class / structs from C++ headers (e.g. cmd>python classstripper.py typeinfo.json)
 #Important note:  Tell ctags not to sort to keep member variables in correct order
@@ -41,19 +41,19 @@ def main(argv):
 				if(classContainer is not None):
 					classContainer["nestedclasses"][classname] = data
 
-			else:
+			elif(not "scope" in data):  # check if this is really not a nested class
 				#print("Found class to convert: " + data["name"])
 				classIndex[data["name"]] = data # store classjson in class Index dict
 		
 		# add class members to their own index
-		if(data["kind"] == "member"):
+		elif(data["kind"] == "member"):
 			fixedScope = data["scope"] # no longer need to fixupscope due to handling nested classes/unions
 			if not fixedScope in memberIndex:
 				memberIndex[fixedScope] = []
 			memberIndex[fixedScope].append(data)
 		
 		#if we find a virtual destructor prototype, mark this class as virtual
-		if(data["kind"] == "prototype" and data["pattern"].find("virtual ~") != -1):
+		elif(data["kind"] == "prototype" and data["pattern"].find("virtual ~") != -1):
 			if(data["scope"] in classIndex): # check if class exists in index NOTE: This mainly fails for nested virtual classes, TODO Supprt nested vclasses?
 				classIndex[data["scope"]]["isvirtual"] = 1
 			
@@ -93,11 +93,12 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 
 	(namePrefix, nameTail) = GetScopeParts(classname)
 
-	outfile.write(tabPrefix + writeType + " " + nameTail + "\n")
+	outfile.write(tabPrefix + writeType + " " + FilterTemplate(nameTail) + "\n")
 	outfile.write(tabPrefix + "{\n")
 		
 	if(subclass != classname and subclass != ""):
-		outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + " // sub class\n")
+		subclass = FilterTemplate(subclass)
+		outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + "; // sub class\n")
 	else:
 		if("isvirtual" in classjson):
 			outfile.write(tabPrefix + "\tvoid** m_pVtbl; // base virtual class virtual func table pointer\n")
@@ -119,10 +120,10 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 		commaPos = fixedPattern.find(",")
 		commentPos = fixedPattern.find("//")
 		if( (commaPos == -1 or commaPos >= commentPos) and fixedPattern.find("<ErrorType>") == -1):  # NOTE: printing the pattern goes horribly wrong when the struct declares multiple vars on one line with commas, if this is the case we need to fallback to old way of printing
-			varline = tabPrefix + "\t" + fixedPattern + "\n" # Write vars with pattern to preserve array sizes and comments
+			varline = tabPrefix + "\t" + FilterTemplate(fixedPattern) + "\n" # Write vars with pattern to preserve array sizes and comments
 		else:
 			(scopePrefix, typeName) = GetScopeParts(FilterType(mvars["typeref"]))
-			varline = tabPrefix +  "\t" + typeName  + " " +  mvars["name"] + "; // Generated var type due to FixupPattern() issue\n"
+			varline = tabPrefix +  "\t" + FilterTemplate(typeName)  + " " +  FilterTemplate(mvars["name"]) + "; // Generated var type due to FixupPattern() issue\n"
 
 		outfile.write(varline)
 		
@@ -167,6 +168,10 @@ def GetScopeParts(classname):
 		scopetail = scopeParts[len(scopeParts)-1]
 		return (scopeprefix, scopetail)
 
+
+# remove template parameters inside < ... >
+def FilterTemplate(name):
+	return re.sub("<.*>", "", name)
 
 # remove "typename:" prefix from ctags typename strings
 def FilterType(typeref):
