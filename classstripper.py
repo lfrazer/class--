@@ -3,7 +3,7 @@ import glob
 import os
 import json
 
-#pass ctags-Universal JSON output into this program to parse out class / structs from C++ headers
+#pass ctags-Universal JSON output into this program to parse out class / structs from C++ headers (e.g. cmd>python classstripper.py typeinfo.json)
 #Example cmd line:  ctags --c++-kinds=+p --fields=+ianS --extras=+q --output-format=json /pathto/yourcode/*.h > typeinfo.json
 
 def main(argv):
@@ -29,6 +29,10 @@ def main(argv):
 			if not fixedScope in memberIndex:
 				memberIndex[fixedScope] = []
 			memberIndex[fixedScope].append(data)
+		
+		#if we find a virtual destructor prototype, mark this class as virtual
+		if(data["kind"] == "prototype" and data["pattern"].find("virtual ~") != -1):
+			classIndex[data["scope"]]["isvirtual"] = 1
 			
 	
 	outfileName = argv[0].replace(".json", ".h")
@@ -36,8 +40,19 @@ def main(argv):
 	
 	for cdata in classIndex.values():
 		classname = cdata["name"]
+		subclass = ""
+
+		if "inherits" in cdata:
+			subclass = cdata["inherits"]
+
+		outfile.write("// class " + classname + " inherits from " + subclass + "\n")
 		outfile.write("struct " + classname + "\n{\n")
 		
+		if(subclass != classname and subclass != ""):
+			outfile.write("\t" + subclass + " m_" + subclass + " // sub class\n")
+		else:
+			if("isvirtual" in cdata):
+				outfile.write("\tvoid** m_pVtbl; // base virtual class virtual func table pointer\n")
 		#filter for duplicate member vars here
 		membervars = {}
 		for mdata in memberIndex[classname]:
