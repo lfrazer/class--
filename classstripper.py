@@ -116,10 +116,13 @@ def WriteClass(classjson, outfile, tabPrefix = ""):
 	for mvars in membervars.values():
 		varline = ""
 		fixedPattern = FixupPattern(mvars["pattern"])
-		if(fixedPattern.find(",") == -1):  # NOTE: printing the pattern goes horribly wrong when the struct declares multiple vars on one line with commas, if this is the case we need to fallback to old way of printing
+		commaPos = fixedPattern.find(",")
+		commentPos = fixedPattern.find("//")
+		if( (commaPos == -1 or commaPos >= commentPos) and fixedPattern.find("<ErrorType>") == -1):  # NOTE: printing the pattern goes horribly wrong when the struct declares multiple vars on one line with commas, if this is the case we need to fallback to old way of printing
 			varline = tabPrefix + "\t" + fixedPattern + "\n" # Write vars with pattern to preserve array sizes and comments
 		else:
-			varline = tabPrefix +  "\t" + FilterType(mvars["typeref"]) + " " + StripScope(mvars["name"], classname) + "; // split multi var declaration line\n"
+			(scopePrefix, typeName) = GetScopeParts(FilterType(mvars["typeref"]))
+			varline = tabPrefix +  "\t" + typeName  + " " +  mvars["name"] + "; // Generated var type due to FixupPattern() issue\n"
 
 		outfile.write(varline)
 		
@@ -176,8 +179,8 @@ def FixupPattern(pattern):
 		pattern = pattern.replace("\\/\\/", "//")
 		pattern = pattern.replace("\\/*", "/*")
 		pattern = pattern.replace("*\\/", "*/")
-		if(pattern.strip()[0] == "}"):
-			pattern = "// <ErrorType>" + pattern  # Sometimes Ctags JSON data gives us bad types from the trailing brace of a C-style structure with name (typedef style?), handle this case
+		if(pattern.strip()[0] == "}"):  # special case, trailing struct/union name 
+			pattern = "// <ErrorType> " + pattern  # Sometimes Ctags JSON data gives us bad types from the trailing brace of a C-style structure with name (typedef style?), handle this case
 	return pattern
 
 # remove class scope of a member var the class is already in
