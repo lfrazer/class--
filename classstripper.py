@@ -1,3 +1,9 @@
+# class-- (class stripper) by lfrazer
+# lfrazer/class-- is licensed under the
+#GNU General Public License v3.0
+# See LICENSE file for details
+# Convert C++ classes to C structures
+
 import getopt, sys
 import glob
 import os
