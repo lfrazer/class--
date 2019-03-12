@@ -65,9 +65,10 @@ def main(argv):
 					
 		
 		#if we find a virtual destructor prototype, mark this class as virtual
-		elif(data["kind"] == "prototype" and data["pattern"].find("virtual ~") != -1):
-			if(data["scope"] in classIndex): # check if class exists in index NOTE: This mainly fails for nested virtual classes, TODO Supprt nested vclasses?
-				classIndex[data["scope"]]["isvirtual"] = 1
+		elif(data["kind"] == "prototype" or data["kind"] == "function"):
+			if(re.search(r'virtual\s+~', data["pattern"]) is not None):   # regex match virtual destructor functions  
+				if(data["scope"] in classIndex): # check if class exists in index NOTE: This mainly fails for nested virtual classes, TODO Supprt nested vclasses?
+					classIndex[data["scope"]]["isvirtual"] = 1
 			
 	
 	outfileName = argv[0].replace(".json", ".h")
