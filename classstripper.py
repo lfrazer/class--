@@ -20,6 +20,9 @@ class CClassStripper:
 		self.classIndex = {}
 		self.memberIndex = {}  # index of lists by class name
 		self.forwardDeclrations = {}  # print forward declarations for non-native ptr types
+		self.enumIndex = {}
+		self.enumConstantIndex = {}
+
 
 	#check if this json data is a nested class
 	def IsNestedClass(self, classjson):
@@ -77,6 +80,19 @@ class CClassStripper:
 				if(re.search(r'virtual\s+~', data["pattern"]) is not None):   # regex match virtual destructor functions  
 					if(data["scope"] in self.classIndex): # check if class exists in index NOTE: This mainly fails for nested virtual classes, TODO Supprt nested vclasses?
 						self.classIndex[data["scope"]]["isvirtual"] = 1
+
+			# handle enum and enum constants
+			# this works a little differently from classes, we don't want any nested stuff since IDA will change the  struct offset if there is nested enum typedefs - so we want to extract all of them from classes
+			elif(data["kind"] == "enum"):
+				enumName = data["name"].replace("::", "__")
+				self.enumIndex[enumName] = data
+
+			elif(data["kind"] == "enumerator"):
+				enumScope = data["scope"].replace("::", "__")
+				if not enumScope in self.enumConstantIndex:
+					self.enumConstantIndex[enumScope] = []
+				self.enumConstantIndex[enumScope].append(data)
+
 			
 	
 		outfileName = filepath.replace(".json", ".h")
@@ -89,6 +105,12 @@ class CClassStripper:
 		for decl in self.forwardDeclrations.keys():
 			outfile.write("struct " + decl + ";\n")
 
+
+		outfile.write("\n\n// Enums \n\n") 
+		#write enums
+		for enumjson in self.enumIndex.values():
+			self.WriteEnum(enumjson, outfile)
+
 		outfile.write("\n\n// Structures \n\n")
 
 		# Write all structures
@@ -97,6 +119,31 @@ class CClassStripper:
 		
 		outfile.close()
 		
+
+	# Print enum and all constant members
+	def WriteEnum(self, enumjson, outfile):
+		enumName = enumjson["name"].replace("::", "__")
+
+		#skip if this enum has no actual constant values in it
+		if(enumName not in self.enumConstantIndex):
+			return
+
+		#filter for duplicate enum constant vals here
+		constvals = {}
+		for cdata in self.enumConstantIndex[enumName]:
+			(scopehead, fixedVarName) = self.GetScopeParts(cdata["name"])
+			if fixedVarName != "" and not fixedVarName in constvals:
+				constvals[fixedVarName] = cdata
+
+		outfile.write("enum " + enumName + " \n")
+		outfile.write("{\n")
+		for enumConstant in constvals.values():
+			fixedPattern = self.FixupPattern(enumConstant["pattern"])
+			#clean pattern further for case of one-liner enum  which will double up enum definition wrongly
+			fixedPattern = re.sub("enum\s+\{", "", fixedPattern)
+			fixedPattern = re.sub("\}\s*;", "", fixedPattern)
+			outfile.write("\t" + fixedPattern + "\n")
+		outfile.write("};\n\n")
 
 
 	# Print class to file (and all nested classes!)
