@@ -73,7 +73,7 @@ class CClassStripper:
 
 				# store ptr types in forward declaration if needed
 				cleanedType = self.FilterTemplate(self.FilterType(data["typeref"]))
-				if cleanedType.find("*") != -1:
+				if cleanedType.find("*") != -1 and re.search(r'\(\*.*\)', cleanedType) is None:  #however, avoid creating forward decl for function pointers
 					cleanedType = cleanedType.replace("*", "")
 					cleanedType = re.sub("\[.*\]", "", cleanedType)
 					cleanedType = cleanedType.strip()
