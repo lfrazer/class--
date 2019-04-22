@@ -75,9 +75,9 @@ class CClassStripper:
 						self.forwardDeclrations[cleanedType] = 1
 					
 		
-			#if we find a virtual destructor prototype, mark this class as virtual
+			#if we find a virtual function of any kind, mark this class as virtual
 			elif(data["kind"] == "prototype" or data["kind"] == "function"):
-				if(re.search(r'virtual\s+~', data["pattern"]) is not None):   # regex match virtual destructor functions  
+				if(re.search(r'virtual\s+.*\(', data["pattern"]) is not None):   # regex match virtual destructor functions  
 					if(data["scope"] in self.classIndex): # check if class exists in index NOTE: This mainly fails for nested virtual classes, TODO Supprt nested vclasses?
 						self.classIndex[data["scope"]]["isvirtual"] = 1
 
@@ -154,8 +154,9 @@ class CClassStripper:
 
 		if "inherits" in classjson:
 			subclass = classjson["inherits"]
-
-		outfile.write(tabPrefix + "// class " + classname + " inherits from " + subclass + "\n")
+			outfile.write(tabPrefix + "// class " + classname + " inherits from " + subclass + "\n")
+		else:
+			outfile.write(tabPrefix + "// class " + classname + " is a base class.\n")
 
 		writeType = "struct"
 		if(classjson["kind"] == "union"):
