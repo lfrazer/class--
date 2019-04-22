@@ -64,7 +64,13 @@ class CClassStripper:
 				fixedScope = data["scope"] # no longer need to fixupscope due to handling nested classes/unions
 				if not fixedScope in self.memberIndex:
 					self.memberIndex[fixedScope] = []
-				self.memberIndex[fixedScope].append(data)
+
+				# don't store member if it is static (C structs have no static members and not relevant to offsets anyway)
+				if(re.search(r'static\s+', data["pattern"]) is None):
+					self.memberIndex[fixedScope].append(data)
+				#else:
+				#	print("Skipping static member: " + data["pattern"] + "\n")
+
 				# store ptr types in forward declaration if needed
 				cleanedType = self.FilterTemplate(self.FilterType(data["typeref"]))
 				if cleanedType.find("*") != -1:
