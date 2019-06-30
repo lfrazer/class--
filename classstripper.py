@@ -167,6 +167,10 @@ class CClassStripper:
 		writeType = "struct"
 		if(classjson["kind"] == "union"):
 			writeType = "union"
+		
+		# append __cppobj for IDA if this is a virtual class
+		if( ("isvirtual" in classjson or subclass != "") and writeType == "struct"):
+			writeType += " __cppobj"
 
 		(namePrefix, nameTail) = self.GetScopeParts(classname)
 
@@ -185,7 +189,8 @@ class CClassStripper:
 
 		else:
 			if("isvirtual" in classjson):
-				outfile.write(tabPrefix + "\tvoid** m_pVtbl; // base virtual class virtual func table pointer\n")
+				# TODO: match up name with generated vtable structures (see https://www.hex-rays.com/products/ida/support/idadoc/1691.shtml)
+				outfile.write(tabPrefix + "\tvoid** vfptr; // base virtual class virtual func table pointer\n")
 	
 		# recursively print all nested classes
 		for nestedclass in classjson["nestedclasses"].values():
