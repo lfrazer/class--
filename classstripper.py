@@ -174,18 +174,25 @@ class CClassStripper:
 
 		(namePrefix, nameTail) = self.GetScopeParts(classname)
 
-		outfile.write(tabPrefix + writeType + " " + self.FilterTemplate(nameTail) + "\n")
+		outfile.write(tabPrefix + writeType + " " + self.FilterTemplate(nameTail) + "\t")
+
+		# IDA features:  class inheritance special syntax for "IDA C"
+		if(subclass != classname and subclass != ""):
+			outfile.write(": " + subclass)
+		
+		outfile.write("\n")
 		outfile.write(tabPrefix + "{\n")
 		
 		if(subclass != classname and subclass != ""):
-			subclass = self.FilterTemplate(subclass)
+			pass
+			#subclass = self.FilterTemplate(subclass)
 			# Try to support multiple inheritance
-			if(subclass.find(",") != -1):
-				subclassList = subclass.split(",")
-				for sclass in subclassList:
-					outfile.write(tabPrefix + "\t" + sclass + " m_" + sclass + "; // sub class (Multiple-inheritance)\n")
-			else:
-				outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + "; // sub class\n")
+			#if(subclass.find(",") != -1):
+			#	subclassList = subclass.split(",")
+			#	for sclass in subclassList:
+			#		outfile.write(tabPrefix + "\t" + sclass + " m_" + sclass + "; // sub class (Multiple-inheritance)\n")
+			#else:
+			#		outfile.write(tabPrefix + "\t" + subclass + " m_" + subclass + "; // sub class\n")
 
 		else:
 			if("isvirtual" in classjson):
